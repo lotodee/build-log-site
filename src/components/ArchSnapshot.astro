@@ -1,0 +1,40 @@
+---
+/**
+ * The per-day architecture snapshot: deliberately small, shows only what
+ * this day added to the system. `built` boxes are the piece that landed;
+ * `context` boxes are the rest of the system shown dim/muted so the reader
+ * has context without visual noise (per status_site_skill_plan.md section 4).
+ *
+ * boxes: { title: string; detail?: string; state: 'built' | 'context' }[]
+ */
+interface Box {
+  title: string;
+  detail?: string;
+  state: 'built' | 'context';
+}
+
+interface Props {
+  label?: string;
+  boxes: Box[];
+}
+
+const { label = 'What this day added to the system', boxes } = Astro.props;
+---
+
+<div class="hlog-arch">
+  <p class="hlog-arch-label">{label}</p>
+  <div class="hlog-arch-grid">
+    {
+      boxes.map((box) => (
+        <div class="hlog-arch-box" data-state={box.state}>
+          <p class="hlog-arch-box-title">{box.title}</p>
+          {box.detail && <p class="hlog-arch-box-detail">{box.detail}</p>}
+        </div>
+      ))
+    }
+  </div>
+  <div class="hlog-arch-legend">
+    <span>solid box = built this day</span>
+    <span>dashed box = rest of the system (context, not new)</span>
+  </div>
+</div>

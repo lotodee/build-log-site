@@ -1,0 +1,72 @@
+---
+title: "Day 2 — Tenant isolation, proven"
+description: "The whole multi-customer promise rests on this day: Postgres RLS forced, two Weaviate tenant shards, and a test that tries to break in, not just walk through."
+day_number: 2
+status: done
+date_landed: "2026-07-02"
+goal: "Prove one customer can never see another customer's data: RLS forced in Postgres, two Weaviate tenants, a test that attacks the isolation rather than just checking it."
+non_negotiable: "Tenant isolation, proven"
+---
+
+import StoryFlow from '../../../components/StoryFlow.astro';
+import ArchSnapshot from '../../../components/ArchSnapshot.astro';
+import ScreenshotSlot from '../../../components/ScreenshotSlot.astro';
+
+**Landed:** 2026-07-02 · **Verified:** 10 isolation tests green in Postgres + Weaviate; Day-1 debts closed
+
+<div class="hlog-nonneg">
+  <b>Non-negotiable.</b> The whole multi-customer promise rests on this day. Isolation is not assumed — it is attacked and proven.
+</div>
+
+## The goal
+
+Seal every customer's data from every other, in the database and the search index. Prove it by attacking it, not by trusting the design on paper.
+
+## The story
+
+<StoryFlow steps={[
+  { label: 'Plan', caption: 'Seal every customer’s data from every other, in the database and the search index. Prove it by attacking it.' },
+  { label: 'Built', caption: 'Forced database walls (Postgres RLS FORCED, an unprivileged role, one single access path — the tenant_txn seam) plus two separate Weaviate search compartments (multi-tenancy on, two tenants created explicitly, auto_tenant_creation off).' },
+  { label: 'Tested', caption: 'A sweep that finds every table on its own, then tries cross-customer reads and writes. 10 isolation tests, against real Postgres and Weaviate services, not mocks.' },
+  { label: 'What broke', kind: 'fail', caption: 'The reviews caught 2 real bugs: a wrong row count in one assertion, and a test that opened its database connection at the wrong moment.' },
+  { label: 'The fix', caption: 'Switched to a true count instead of the wrong one, and moved the connection to the right point in the test. Written down, not papered over.' },
+  { label: 'Green', kind: 'pass', caption: '10 isolation tests pass. Quick checks green (80 unit tests). 23 integration tests pass.' },
+]} />
+
+## What actually shipped
+
+- Postgres tenant isolation: Row-Level Security **forced** on tenant-scoped tables, an unprivileged application role that cannot bypass the walls, and exactly one access path into tenant data (the `tenant_txn` seam) that fails closed if the tenant is not set.
+- Weaviate tenant isolation: multi-tenancy enabled, two tenants created explicitly at bootstrap. `auto_tenant_creation` deliberately left off, so an unknown tenant is a hard failure, never a silently-created new shard.
+- A dynamic isolation sweep: 10 tests that find every tenant-scoped table on their own and attempt cross-tenant reads and writes against real Postgres and Weaviate, not fakes. A throwaway unprotected table was used to prove the sweep actually catches a table that forgets its wall — the guard itself was tested, not just trusted.
+- The rebuildable-from-Postgres design: the `chunks` table stores each piece's searchable form (text, metadata, and the embedding vector) per tenant with RLS forced, so Weaviate is a derived index, not a second source of truth. If Weaviate is ever lost, a reindex job rebuilds it from Postgres with no customer re-upload and no re-embedding cost.
+- Day-1 debts closed as part of this day's work (the `widget_keys` RLS gap flagged by Day 1's security review).
+
+### Honest wrinkles worth telling
+
+Two real bugs were caught by review, not shipped silently:
+
+1. **A wrong row count** in one of the isolation assertions — fixed by switching to a true count.
+2. **A test that touched the database at the wrong moment** — a connection opened before the tenant context was set, which could have made a false-negative pass possible. Fixed by moving the connection to the correct point in the test.
+
+Both are recorded here, not smoothed over, because a review that never finds anything on a day this security-sensitive would be a weaker signal than a review that found two real things and got them fixed.
+
+## Architecture snapshot
+
+<ArchSnapshot label="What Day 2 added: tenant isolation" boxes={[
+  { title: 'Postgres — RLS FORCED', detail: 'documents + chunks tables walled per tenant; unprivileged role; one access path (tenant_txn), fails closed if unset', state: 'built' },
+  { title: 'Weaviate — 2 tenants', detail: 'multi-tenancy on, tenants created explicitly, auto_tenant_creation off — unknown tenant hard-fails', state: 'built' },
+  { title: 'chunks table (rebuild source)', detail: 'text + metadata + embedding vector per tenant — Weaviate can be rebuilt from here with no re-upload', state: 'built' },
+  { title: 'Door A / B / C (Day 1)', detail: 'tenant resolved once at the door, travels as data into this layer', state: 'context' },
+  { title: 'Retrieval + agent (Days 5–6)', detail: 'not yet built — will read through this same isolated layer', state: 'context' },
+]} />
+
+## Proof
+
+```text
+10 isolation tests: green (Postgres + Weaviate, real services)
+Quick-gate: green (80 unit tests)
+Integration: 23 tests pass
+Cross-tenant leaks: 0
+```
+
+<ScreenshotSlot note="Screenshot placeholder — reserved for a future GitHub Actions run screenshot of the isolation sweep, if the owner wants one alongside the pasted output above." />

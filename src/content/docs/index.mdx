@@ -1,0 +1,53 @@
+---
+title: honest-agent — build log
+description: A dated, honest build log for honest-agent, the AI support assistant with an honesty layer as the actual product.
+template: splash
+---
+
+import { getCollection } from 'astro:content';
+import StatusBadge from '../../components/StatusBadge.astro';
+
+export const dayEntries = (await getCollection('docs'))
+  .filter((e) => typeof e.data.day_number !== 'undefined')
+  .sort((a, b) => {
+    const na = a.data.day_number === 'M0' ? -1 : Number(a.data.day_number);
+    const nb = b.data.day_number === 'M0' ? -1 : Number(b.data.day_number);
+    return na - nb;
+  });
+
+**honest-agent** is a multi-tenant, embeddable AI support assistant. An owner feeds it their own content (PDFs, including scanned/image PDFs), drops one script tag on their site, and the widget answers visitors grounded only in that owner's content — refusing, with an honest verdict, when it cannot ground an answer. The reliability and evaluation layer is the actual product, not a feature bolted onto a chatbot.
+
+<div class="hlog-callout">
+  <strong>This site documents how the project was built.</strong> The product demo is private and shareable on request — there is no live demo link here, and there will not be one. This is a process log, not a product front door.
+</div>
+
+## The 12-day build, at a glance
+
+Every day of the build is listed below from day one, most still marked Upcoming, so the full intended arc is visible before it happens — not just what has landed so far.
+
+<table class="hlog-overview-table">
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>Goal</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {dayEntries.map((entry) => {
+      const dayLabel = entry.data.day_number === 'M0' ? 'Milestone 0' : `Day ${entry.data.day_number}`;
+      const href = `/days/${entry.id.replace(/^days\//, '').replace(/\/$/, '').replace(/\.mdx?$/, '')}/`;
+      return (
+        <tr>
+          <td><a href={href}>{dayLabel}</a></td>
+          <td class="hlog-goal">{entry.data.goal}</td>
+          <td><StatusBadge status={entry.data.status ?? 'upcoming'} /></td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+## Why this exists
+
+This is a resume artifact and a peer-facing archive: one page that proves the work happened, in order, with the failures left in. See [About this site](/about/) for the honesty rule this site holds itself to.

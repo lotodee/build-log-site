@@ -1,0 +1,15 @@
+---
+/**
+ * Placeholder slot for a screenshot that will be added later.
+ * Per Planning/status_site_skill_plan.md section 6: only used when this
+ * day genuinely has a visual moment (a real UI change or a CI/CD result).
+ * Never filled with a decorative or stock image.
+ */
+interface Props {
+  note?: string;
+}
+
+const { note = 'Screenshot placeholder — to be added when this day has a capturable visual moment.' } = Astro.props;
+---
+
+<div class="hlog-shot-placeholder">{note}</div>

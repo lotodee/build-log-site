@@ -1,0 +1,50 @@
+---
+/**
+ * The per-day story-flow diagram: a horizontal node-on-a-line track
+ * (Plan -> Built -> Tested -> Broke -> Fixed -> Green), with exactly one
+ * red node ("broke") and one green node ("green"). Everything else is
+ * neutral. This directly fixes the owner's feedback on
+ * Posts/images/day2_diagram.html (clear red/green, not shades; simpler,
+ * less cluttered; text captions instead of six equal-size cards).
+ *
+ * If a day had no real wrinkle, omit that step from `steps` entirely —
+ * never fabricate a "broke" node. See Planning/status_site_skill_plan.md
+ * section 4 and Skills/build-log-site/SKILL.md step 2.
+ *
+ * steps: { label: string; kind?: 'fail' | 'pass'; caption: string }[]
+ */
+interface Step {
+  label: string;
+  kind?: 'fail' | 'pass';
+  caption: string;
+}
+
+interface Props {
+  steps: Step[];
+}
+
+const { steps } = Astro.props;
+---
+
+<div class="hlog-storyflow">
+  <div class="hlog-storyflow-track">
+    {
+      steps.map((step) => (
+        <div class="hlog-node" data-kind={step.kind ?? 'neutral'}>
+          <span class="hlog-node-dot" />
+          <span class="hlog-node-label">{step.label}</span>
+        </div>
+      ))
+    }
+  </div>
+  <ol class="hlog-storyflow-captions">
+    {
+      steps.map((step) => (
+        <li data-kind={step.kind ?? 'neutral'}>
+          <span class="hlog-cap-label">{step.label}</span>
+          <span class="hlog-cap-text">{step.caption}</span>
+        </li>
+      ))
+    }
+  </ol>
+</div>

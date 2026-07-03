@@ -1,0 +1,20 @@
+---
+/**
+ * Small status badge. status must be one of: done | in_progress | upcoming.
+ * Colors are defined once in src/styles/custom.css so every badge on the
+ * site (overview table + per-day header) stays visually consistent.
+ */
+interface Props {
+  status: 'done' | 'in_progress' | 'upcoming';
+}
+
+const { status } = Astro.props;
+
+const labels: Record<Props['status'], string> = {
+  done: 'Done',
+  in_progress: 'In progress',
+  upcoming: 'Upcoming',
+};
+---
+
+<span class="hlog-badge" data-status={status}>{labels[status]}</span>

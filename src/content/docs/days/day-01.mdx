@@ -1,0 +1,81 @@
+---
+title: "Day 1 — The auth spine"
+description: "Three doors, three credentials, one typed stub behind them. A security review found a real gap the next day, and it got fixed with tests."
+day_number: 1
+status: done
+date_landed: "2026-06-30"
+goal: "Before any answer engine exists, build the doors: three different kinds of caller, each proving who it is in its own way."
+non_negotiable: false
+---
+
+import StoryFlow from '../../../components/StoryFlow.astro';
+import ArchSnapshot from '../../../components/ArchSnapshot.astro';
+import ScreenshotSlot from '../../../components/ScreenshotSlot.astro';
+
+**Landed:** 2026-06-30 · **Verified:** 2026-06-30 (senior questions answered, Host-check gap fixed)
+
+## The goal
+
+Before any answer engine exists, build the doors. The product takes three different kinds of caller, and each one has to prove who it is in its own way. Day 1 stood up all three secured entry doors over real HTTP, with the brain behind them deliberately left as a typed stub.
+
+## The story
+
+<StoryFlow steps={[
+  { label: 'Plan', caption: 'Stand up all three secured entry doors over real HTTP: owner login, visitor widget, external-AI (MCP). Leave the core answer engine a typed stub on purpose.' },
+  { label: 'Built', caption: 'Owner login door (Supabase JWT, ES256, tenant from server-controlled app_metadata only). Visitor widget door (public widget key, domain allowlist, body-size cap, rate-limit seam). External-AI door (secured remote MCP server, signed token checked for signature/issuer/audience/expiry, Origin validated, never forwards the token upstream).' },
+  { label: 'Tested', caption: 'Green quick-gate: ruff, mypy, 74 unit tests. A re-runnable end-to-end script exercising all three doors: 9/9. A full negative/abuse test matrix. Three self-review passes: spec-review, senior-engineering pass, security review.' },
+  { label: 'What broke', kind: 'fail', caption: 'The security review surfaced a Medium: the widget_keys table did not have RLS forced yet (consciously deferred to Day 2, documented). The senior pass caught and removed two dead-code items. A later senior review refused to sign off until claims were proven, and found the real gap: the MCP door validated Origin but not Host, a DNS-rebinding hole on a real deployed server.' },
+  { label: 'The fix', caption: 'A fail-closed Host allowlist added to the mounted server, proven by tests that hit the real door, not a mock. Added a log-hygiene test (tokens/keys/Authorization headers never appear verbatim in logs). Confirmed app_metadata always wins over user-editable user_metadata. The secret guard extended to cover the Vertex credential too.' },
+  { label: 'Green', kind: 'pass', caption: 'Day 1 done and verified, no open items. 74 unit tests, 9/9 end-to-end, cross-rejection proven both ways (owner token rejected at the MCP door, MCP token rejected at the owner door).' },
+]} />
+
+## What actually shipped
+
+- **Owner login door.** Supabase JWT verified properly: algorithm pinned to ES256 (kills the `alg=none` trick and algorithm-confusion attacks), key rotation handled, and the tenant is read only from server-controlled `app_metadata`, never from anything the client can set.
+- **Visitor widget door.** No login. A public widget key bound to an exact allowlist of domains, a body-size cap, a rate-limit seam (clean interface now, real limiter on Day 11), and the request sanitized down to just the visitor's question before it touches the core. Calls the core in-process.
+- **External-AI door.** A secured remote MCP server. It checks a self-minted signed token for signature, issuer, audience, and expiry, rejects tokens that were not minted for it, validates Origin, and never forwards the token upstream. Proven to be a different credential from the owner login, with cross-rejection tested both ways (owner token rejected at the MCP door, MCP token rejected at the owner door).
+- **Core answer engine is a typed stub on purpose.** Real retrieval lands Day 5, real grounded-answer-with-honesty-verdict lands Day 6. The honesty verdict is fused into the answer capability, never an optional add-on.
+
+### Honest wrinkles worth telling
+
+- The security review surfaced a Medium: the `widget_keys` table does not have RLS forced yet. It was consciously deferred to Day 2 (the tenant-isolation day) with a documented reason, not missed.
+- The senior pass caught and removed two dead-code items.
+- The reviews caught real things — the checks are not theater.
+
+### Day 1 verification (post-review fixes)
+
+After Day 1 "looked done," a senior review pass refused to sign off until claims were proven, and a verification pass then closed every item:
+
+- **The real gap:** the external-AI (MCP) door validated `Origin` but NOT `Host`. With the framework's built-in localhost-only guard turned off, that left no Host check — a DNS-rebinding hole on a real deployed server. Fixed with a fail-closed Host allowlist on the mounted server, proven by tests that hit the real door, not a mock. On deploy (Day 9) this becomes the whole DNS-rebinding defense.
+- Added a log-hygiene test: tokens, keys, and Authorization headers never appear verbatim in the logs.
+- Confirmed precedence: server-controlled `app_metadata` always wins over user-editable `user_metadata` for which tenant a caller is.
+- The secret guard now also covers the Vertex (Google) credential, not just the obvious ones.
+- Confirmed the local login tokens are real ES256 (the same signing method as production), and that no Day-1 test was silently skipped.
+- Recorded the removal of an old single shared `get_current_tenant` helper as an intentional, written amendment, so no future day re-introduces a cross-door tenant shortcut.
+
+Net: Day 1 done and **verified**, no open items.
+
+### Decision revisited: browser extension to embeddable widget
+
+The warm-up post named a browser extension as one of the moving parts. The delivery model changed to an embeddable **widget** (a single script tag the site owner drops onto their site). Why: a support assistant has to reach every visitor on the owner's site with zero install. A browser extension only works for the handful of people who install it, and it puts the burden on the visitor — the wrong audience and the wrong friction. A widget reaches all visitors instantly, the site owner controls it, and it is isolated with Shadow DOM so it cannot clash with or leak into the host page. This also clarified the whole system's shape: ingestion + RAG + evaluation sit behind **one** API, exposed **two** ways (the widget for site visitors, the MCP server for external AI callers), with the reliability/honesty layer as the actual product.
+
+## Architecture snapshot
+
+<ArchSnapshot label="What Day 1 added: the three doors" boxes={[
+  { title: 'Door A — Owner login', detail: 'Supabase JWT, ES256, tenant from app_metadata only', state: 'built' },
+  { title: 'Door B — Visitor widget gate', detail: 'widget key + origin allowlist + size cap + sanitize', state: 'built' },
+  { title: 'Door C — External-AI (MCP)', detail: 'signed token, Origin + Host validated, no passthrough', state: 'built' },
+  { title: 'Core answer engine', detail: 'typed stub — real retrieval (Day 5), real answer+verdict (Day 6)', state: 'context' },
+  { title: 'Postgres / Weaviate', detail: 'tenant isolation lands Day 2', state: 'context' },
+]} />
+
+## Proof
+
+```text
+Green quick-gate: ruff, mypy, 74 unit tests
+Re-runnable end-to-end script exercising all three doors: 9/9
+Full negative / abuse test matrix
+Three self-review passes: spec-review, senior-engineering pass, security review
+```
+
+<ScreenshotSlot />

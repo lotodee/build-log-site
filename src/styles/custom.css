@@ -1,0 +1,360 @@
+/*
+ * honest-agent build log — custom theme layer on top of Starlight defaults.
+ * Visual language locked in Planning/status_site_skill_plan.md section 4:
+ * dark, one accent color, red/green reserved exclusively for pass/fail.
+ */
+
+:root {
+  /* base palette, matches Posts/images/day2_diagram.html for one visual identity */
+  --hlog-bg: #0b0b0f;
+  --hlog-ink: #ececef;
+  --hlog-muted: #9aa0aa;
+  --hlog-line: #26262f;
+  --hlog-chip: #171722;
+  --hlog-card: #121219;
+
+  /* the one accent color, used only for links / nav / emphasis */
+  --hlog-accent: #7c5cff;
+
+  /* pass/fail verdict colors — reserved exclusively for these semantics */
+  --hlog-fail: #ef4444;
+  --hlog-pass: #22c55e;
+
+  /* map onto Starlight's theme variables */
+  --sl-color-accent: var(--hlog-accent);
+  --sl-color-accent-high: #b3a1ff;
+  --sl-color-accent-low: #2a2050;
+  --sl-color-white: var(--hlog-ink);
+  --sl-color-gray-1: var(--hlog-ink);
+  --sl-color-gray-2: #cfd0d6;
+  --sl-color-gray-3: var(--hlog-muted);
+  --sl-color-gray-4: #3a3a45;
+  --sl-color-gray-5: #24242e;
+  --sl-color-gray-6: #17171f;
+  --sl-color-black: var(--hlog-bg);
+
+  --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* generous spacing, minimal chrome */
+.sl-markdown-content {
+  line-height: 1.65;
+}
+
+.sl-markdown-content h2 {
+  margin-top: 2.5rem;
+}
+
+/* ---------- status badges ---------- */
+.hlog-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.22em 0.7em;
+  border-radius: 999px;
+  border: 1px solid var(--hlog-line);
+  white-space: nowrap;
+}
+
+.hlog-badge[data-status='done'] {
+  color: var(--hlog-pass);
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.hlog-badge[data-status='in_progress'] {
+  color: var(--hlog-ink);
+  border-color: rgba(124, 92, 255, 0.5);
+  background: rgba(124, 92, 255, 0.08);
+}
+
+.hlog-badge[data-status='upcoming'] {
+  color: var(--hlog-muted);
+  border-color: var(--hlog-line);
+  background: transparent;
+}
+
+/* ---------- overview table ---------- */
+.hlog-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.hlog-overview-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hlog-muted);
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--hlog-line);
+}
+
+.hlog-overview-table td {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--hlog-line);
+  vertical-align: middle;
+}
+
+.hlog-overview-table tr:last-child td {
+  border-bottom: none;
+}
+
+.hlog-overview-table a {
+  color: var(--hlog-ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.hlog-overview-table a:hover {
+  color: var(--hlog-accent);
+}
+
+.hlog-overview-table .hlog-goal {
+  color: var(--hlog-muted);
+}
+
+/* ---------- private-demo callout ---------- */
+.hlog-callout {
+  border: 1px solid var(--hlog-line);
+  border-left: 3px solid var(--hlog-accent);
+  background: var(--hlog-chip);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 1.4rem 0;
+  font-size: 0.95rem;
+}
+
+/* ---------- non-negotiable callout ---------- */
+.hlog-nonneg {
+  border: 1px dashed rgba(124, 92, 255, 0.5);
+  background: rgba(124, 92, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.8rem 1.1rem;
+  margin: 1.2rem 0;
+  font-size: 0.9rem;
+}
+
+.hlog-nonneg b {
+  color: var(--hlog-accent);
+}
+
+/* ---------- story flow (node-on-a-line) ---------- */
+.hlog-storyflow {
+  margin: 1.5rem 0 2rem;
+}
+
+.hlog-storyflow-track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.hlog-storyflow-track::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  height: 2px;
+  background: var(--hlog-line);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.hlog-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  opacity: 0;
+  animation: hlog-fade-in 220ms ease-out forwards;
+}
+
+.hlog-node:nth-child(1) { animation-delay: 0ms; }
+.hlog-node:nth-child(2) { animation-delay: 70ms; }
+.hlog-node:nth-child(3) { animation-delay: 140ms; }
+.hlog-node:nth-child(4) { animation-delay: 210ms; }
+.hlog-node:nth-child(5) { animation-delay: 280ms; }
+.hlog-node:nth-child(6) { animation-delay: 350ms; }
+
+@keyframes hlog-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hlog-node {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+.hlog-node-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--hlog-chip);
+  border: 2px solid var(--hlog-gray-4, #3a3a45);
+  border-color: #4a4a58;
+}
+
+.hlog-node-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hlog-ink);
+  text-align: center;
+}
+
+.hlog-node[data-kind='fail'] .hlog-node-dot {
+  background: var(--hlog-fail);
+  border-color: var(--hlog-fail);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+.hlog-node[data-kind='fail'] .hlog-node-label {
+  color: var(--hlog-fail);
+}
+
+.hlog-node[data-kind='pass'] .hlog-node-dot {
+  background: var(--hlog-pass);
+  border-color: var(--hlog-pass);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+}
+
+.hlog-node[data-kind='pass'] .hlog-node-label {
+  color: var(--hlog-pass);
+}
+
+.hlog-storyflow-captions {
+  list-style: none;
+  margin: 1.3rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.hlog-storyflow-captions li {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 0.8rem;
+  font-size: 0.92rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--hlog-line);
+}
+
+.hlog-storyflow-captions li:last-child {
+  border-bottom: none;
+}
+
+.hlog-storyflow-captions .hlog-cap-label {
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--hlog-muted);
+  padding-top: 0.15rem;
+}
+
+.hlog-storyflow-captions li[data-kind='fail'] .hlog-cap-label {
+  color: var(--hlog-fail);
+}
+
+.hlog-storyflow-captions li[data-kind='pass'] .hlog-cap-label {
+  color: var(--hlog-pass);
+}
+
+.hlog-storyflow-captions .hlog-cap-text {
+  color: var(--hlog-ink);
+}
+
+/* ---------- architecture snapshot ---------- */
+.hlog-arch {
+  border: 1px solid var(--hlog-line);
+  border-radius: 12px;
+  padding: 1.2rem 1.3rem;
+  margin: 1.5rem 0;
+  background: var(--hlog-card);
+}
+
+.hlog-arch-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hlog-muted);
+  font-weight: 700;
+  margin: 0 0 0.9rem;
+}
+
+.hlog-arch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.hlog-arch-box {
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.hlog-arch-box[data-state='built'] {
+  border: 1px solid var(--hlog-accent);
+  background: rgba(124, 92, 255, 0.08);
+  color: var(--hlog-ink);
+}
+
+.hlog-arch-box[data-state='context'] {
+  border: 1px dashed var(--hlog-line);
+  color: var(--hlog-muted);
+  background: transparent;
+}
+
+.hlog-arch-box-title {
+  font-weight: 700;
+  margin: 0 0 0.2rem;
+}
+
+.hlog-arch-box-detail {
+  margin: 0;
+  color: var(--hlog-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.hlog-arch-legend {
+  margin-top: 0.9rem;
+  font-size: 0.75rem;
+  color: var(--hlog-muted);
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- proof (code block) styling handled by Starlight defaults; ---------- */
+/* monospace already applied to <code>/<pre> by the theme. */
+
+/* ---------- screenshot placeholder ---------- */
+.hlog-shot-placeholder {
+  border: 1px dashed var(--hlog-line);
+  border-radius: 10px;
+  padding: 2.2rem 1rem;
+  text-align: center;
+  color: var(--hlog-muted);
+  font-size: 0.85rem;
+  margin: 1.2rem 0;
+  background: var(--hlog-chip);
+}

@@ -1,0 +1,68 @@
+---
+title: "Milestone 0 — Codebase primed"
+description: "Before any feature, the foundation: strict toolchain, domain-first skeleton, CI, and a green quick-gate on an empty repo."
+day_number: "M0"
+status: done
+date_landed: "2026-06-30"
+goal: "Set up the codebase so it reads as senior and so AI coding agents can work in it without drifting, before writing a single feature."
+non_negotiable: false
+---
+
+import StoryFlow from '../../../components/StoryFlow.astro';
+import ArchSnapshot from '../../../components/ArchSnapshot.astro';
+import ScreenshotSlot from '../../../components/ScreenshotSlot.astro';
+
+**Landed:** 2026-06-30
+
+## The goal
+
+Before writing a single feature, set the codebase up properly so it reads as senior and so AI coding agents can work in it without drifting.
+
+## The story
+
+<StoryFlow steps={[
+  { label: 'Plan', caption: 'Prime the repo before any feature: pinned toolchain, domain-first skeleton, CI, a real local stack.' },
+  { label: 'Built', caption: 'uv project (pinned Python 3.12, src/app layout, committed uv.lock with 129 packages), a strict Ruff + mypy strict + pytest toolchain, a core/ package with typed Settings, structlog JSON logging, an AppError hierarchy with an RFC 9457 handler, and 7 empty wired domains.' },
+  { label: 'Tested', caption: 'A three-layer test tree (unit, integration, eval) with the eval layer isolated; fast pre-commit hooks; mypy and tests run in CI, not pre-commit.' },
+  { label: 'Green', kind: 'pass', caption: 'Green quick-gate on an empty repo: ruff check all passed, ruff format 29 files already formatted, mypy success on 25 source files, pytest tests/unit passed, pre-commit 12/12 hooks passed, docker compose config valid.' },
+]} />
+
+## What actually shipped
+
+- uv project, pinned Python 3.12, `src/app` layout, committed `uv.lock` (129 packages).
+- Strict toolchain: Ruff as linter and formatter (including the async-blocking rules), mypy in strict mode with the Pydantic plugin, pytest with asyncio auto mode.
+- Domain-first skeleton: a `core/` package (typed Settings, structlog JSON logging, Logfire and Sentry stubs, an AppError hierarchy with an RFC 9457 error handler, and the single shared `get_current_tenant` dependency) plus 7 empty wired domains (tenants, ingestion, agent, retrieval, guardrails, eval, mcp). The agent package already carries the Gemini-only provider interface and the typed honesty-verdict type.
+- Three-layer test tree (unit, integration, eval), with the eval layer isolated.
+- Fast pre-commit hooks (Ruff, gitleaks, hygiene); mypy and tests run in CI, not pre-commit, to keep the commit gate fast.
+- GitHub Actions CI: a quick-gate job first, then integration, then eval, every action pinned to a commit SHA, `uv sync --frozen`.
+- Local stack up and healthy: Weaviate 1.38.2 and local Supabase, with a real gitignored `.env`.
+- 64 tracked files, 13 Conventional Commits, `main` green throughout.
+
+Self-review: spec-review passed (only the locked stack, all owner overrides honored, no feature built ahead of plan), senior-pass passed (it found and fixed one DRY violation in `db.py`).
+
+Deferred on purpose: the two frontends to Day 9/10 (precise stub READMEs for now), and `cryptography` capped below v49 because v49+ has no wheel for this Intel Mac.
+
+## Architecture snapshot
+
+<ArchSnapshot label="What Milestone 0 put in place" boxes={[
+  { title: 'core/', detail: 'Settings, logging, AppError → RFC 9457, get_current_tenant', state: 'built' },
+  { title: '7 empty domains', detail: 'tenants, ingestion, agent, retrieval, guardrails, eval, mcp — wired, not implemented', state: 'built' },
+  { title: 'CI pipeline', detail: 'quick-gate → integration → eval, actions pinned to SHA', state: 'built' },
+  { title: 'Local stack', detail: 'Weaviate 1.38.2 + local Supabase, healthy', state: 'built' },
+  { title: 'Real features (auth, retrieval, agent)', detail: 'not yet built — this day is foundation only', state: 'context' },
+]} />
+
+## Proof
+
+```text
+ruff check: all checks passed
+ruff format --check: 29 files already formatted
+mypy src: success, no issues in 25 source files
+pytest tests/unit: passed
+pre-commit: 12/12 hooks passed
+docker compose config: valid
+```
+
+64 tracked files, 13 Conventional Commits, `main` green throughout.
+
+<ScreenshotSlot />
