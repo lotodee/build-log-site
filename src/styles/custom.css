@@ -119,6 +119,28 @@
   color: var(--hlog-muted);
 }
 
+/* Whole-row click target: every cell holds a link to the day; each link
+   swallows its cell's padding so there is no dead zone between cells. */
+.hlog-day-row td a {
+  display: block;
+  margin: -0.7rem -0.8rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.hlog-day-row .hlog-goal a {
+  color: var(--hlog-muted);
+  font-weight: 400;
+}
+
+.hlog-day-row:hover {
+  background: var(--hlog-chip);
+  cursor: pointer;
+}
+
+.hlog-day-row:hover td:first-child a {
+  color: var(--hlog-accent);
+}
+
 /* ---------- private-demo callout ---------- */
 .hlog-callout {
   border: 1px solid var(--hlog-line);

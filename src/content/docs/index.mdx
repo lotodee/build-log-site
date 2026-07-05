@@ -38,10 +38,10 @@ Every day of the build is listed below from day one, most still marked Upcoming,
       const dayLabel = entry.data.day_number === 'M0' ? 'Milestone 0' : `Day ${entry.data.day_number}`;
       const href = `/days/${entry.id.replace(/^days\//, '').replace(/\/$/, '').replace(/\.mdx?$/, '')}/`;
       return (
-        <tr>
+        <tr class="hlog-day-row">
           <td><a href={href}>{dayLabel}</a></td>
-          <td class="hlog-goal">{entry.data.goal}</td>
-          <td><StatusBadge status={entry.data.status ?? 'upcoming'} /></td>
+          <td class="hlog-goal"><a href={href} tabindex="-1">{entry.data.goal}</a></td>
+          <td><a href={href} tabindex="-1"><StatusBadge status={entry.data.status ?? 'upcoming'} /></a></td>
         </tr>
       );
     })}
