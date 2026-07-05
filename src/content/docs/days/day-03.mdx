@@ -1,0 +1,84 @@
+---
+title: "Day 3 — Poison PDFs die in a subprocess"
+description: "A per-page router (native text, gated OCR, vision) behind a subprocess crash boundary: a broken PDF kills a child process and lands in a DLQ with a reason — the worker never goes down."
+day_number: 3
+status: done
+date_landed: "2026-07-03"
+goal: "OCR/vision PDF spike: native text to gated OCR to Gemini-vision for image pages; poison PDFs parsed in a subprocess to a dead-letter queue."
+non_negotiable: "Poison-PDF survival"
+---
+
+import StoryFlow from '../../../components/StoryFlow.astro';
+import ArchSnapshot from '../../../components/ArchSnapshot.astro';
+import ScreenshotSlot from '../../../components/ScreenshotSlot.astro';
+
+**Landed:** 2026-07-03 · **Verified:** 9 PDF integration tests green on real fixtures; the worker survives a poison file mid-batch
+
+<div class="hlog-nonneg">
+  <b>Non-negotiable.</b> A poison PDF must not take down the ingestion worker — it has to die in an isolated subprocess and land in a dead-letter queue with a reason, never crash the service.
+</div>
+
+## The goal
+
+Route each PDF page through the cheapest path that works: native text extraction first, OCR only for scanned pages, vision only for image- or vector-heavy pages. And parse every PDF inside a timeout-bounded subprocess, so a file that kills the underlying C library kills a child process, not the worker.
+
+This day was deliberately a **spike**: prove the riskiest part of reading a customer PDF, not build the full ingestion pipeline (that is Day 4).
+
+## The story
+
+<StoryFlow steps={[
+  { label: 'Plan', caption: 'Prove the riskiest part of reading a customer PDF: a per-page cheapest-path router, and a crash boundary so a poison file can never take the worker down.' },
+  { label: 'Built', caption: 'A per-page router — native text first, gated OCR (Tesseract) only for scanned pages, vision only for image-heavy pages, with an image-hash dedupe before any vision call. All parsing inside a timeout-bounded child process; a poison file lands in a DLQ-shaped dead result with a distinct reason (malformed / encrypted / timeout), terminal and never retried.' },
+  { label: 'Tested', caption: '9 PDF integration tests over real committed fixtures (scanned, diagram, poison, encrypted), plus a batch proof: healthy file, poison file, healthy file — the parent process survives the poison and keeps working.' },
+  { label: 'What broke', kind: 'fail', caption: 'The reviews and follow-up work caught 4 real things: a duplicated test helper in the diff; the configured model id did not actually exist (404 everywhere); embeddings at the chosen dimension came back un-normalized; and the type checker had never covered the test suite — 4 latent type errors were hiding there.' },
+  { label: 'The fix', caption: 'The helper was shared and the failure-reason construction centralized; the model id was corrected with a regression test pinning it; normalization was made mandatory and recorded as an architecture decision; the type-check scope was widened and all 4 errors fixed properly — no casts, no ignores.' },
+  { label: 'Green', kind: 'pass', caption: '9 PDF tests in 18.29s. 32 integration tests pass. Unit tests grew 84 → 89 across the window; the type checker now covers 74 files, up from 46.' },
+]} />
+
+## What actually shipped
+
+- **A per-page router.** Native text extraction first; OCR (Tesseract) only when a page looks scanned (the heuristic is named constants, not magic numbers); vision only for image- or vector-heavy pages. A SHA-256 hash of the page image is checked **before** any vision call, so the same image is never described twice — cost discipline built in from the first day it could matter.
+- **A subprocess crash boundary.** Every PDF is parsed in a child process under a hard timeout. A poison file kills only the child; the parent raises a typed error with a distinct reason — malformed, encrypted, or timeout — and keeps going.
+- **A DLQ-shaped result.** A poison file lands in a `dead` result carrying its reason: terminal, never retried, and nothing gets written to the Day-2 tables for it.
+- **Real committed fixtures** — a scanned page, a diagram page, a poison file, an encrypted file — plus a reproducible generator, so the proof re-runs anywhere. CI installs Tesseract and runs the whole spike in the integration job.
+
+### Also landed in the Day-3 window
+
+The days after the spike merged a series of smaller PRs that count as Day-3 work:
+
+- **One rules file, two new review skills.** The agent working rules were consolidated into a single source of truth, and the self-review gate grew from three skills to four (a question-pass that interrogates every choice and forces every stub into a tracked ledger). A codebase map and a stub ledger were seeded — every placeholder in the code now has a close condition, a real test that will prove the real thing, and a fail-closed guard.
+- **Per-component secrets.** The backend reads exactly one env file, anchored so the working directory can never change which file loads; the cloud credential is typed, registered with the secret-on-server guard, and the key file is git-ignored by pattern so it cannot be committed.
+- **Decisions live in one log.** The architecture decision records were reconciled into the single decision log; stale docs that described a superseded pattern were corrected or marked historical.
+- **The model config was locked in — after a real pre-flight.** The generation model, location, and embedding dimension are code-defaulted and env-overridable, with a regression test pinning the defaults. (See the wrinkles below for what the pre-flight found.)
+- **The type checker now covers the tests.** CI had been type-checking only the source tree, so errors in tests could never fail the build. The scope was widened to tests and scripts, and the 4 pre-existing errors found there were fixed properly.
+
+### Honest wrinkles worth telling
+
+1. **Vision is stubbed.** No cloud credential is reachable in the build environment, so the diagram page gets a stub description for now. The seam is real and tested — route-to-vision, the image-hash dedupe, the model name coming only from settings — and the live vision call lands when ingestion goes live. It is tracked in the stub ledger with a required fail-closed guard: a missing credential must raise in any real run, never silently write placeholder text. That guard is on record as the next immediate action, not yet closed.
+2. **The configured model id did not exist.** The intended model returned 404 in every region — the codebase carried an invalid default for two days. It was caught by an actual pre-flight probe against the API, not by a reviewer reading code, and fixed with a regression test so it cannot come back.
+3. **Embeddings needed a probe too.** At the chosen 768 dimension, the embedding API returns un-normalized vectors (a real call measured it). Re-normalization is now mandatory and the whole decision is recorded as an ADR — verified, not assumed.
+4. **The poison fixture is a catchable parser error, not an OS-level segfault.** Crash isolation is still proven — the timeout path forcibly kills the child and the parent survives — but this page will not claim "segfault-tested," because it wasn't.
+5. **Day-3 code touches no tenant id** (it operates on a file path only), so the tenant-id type reconciliation was explicitly handed to Day 4 rather than half-done here.
+
+## Architecture snapshot
+
+<ArchSnapshot label="What Day 3 added: the PDF reading spike" boxes={[
+  { title: 'Per-page router', detail: 'native text → gated OCR (Tesseract) → vision; scanned-page heuristic as named constants; SHA-256 image dedupe before any vision call', state: 'built' },
+  { title: 'Subprocess crash boundary', detail: 'all parsing in a child process under a hard timeout; poison kills only the child; typed reasons: malformed / encrypted / timeout', state: 'built' },
+  { title: 'DLQ-shaped dead result', detail: 'terminal, carries its reason, never retried; no rows written for a poison file', state: 'built' },
+  { title: 'Vision describer', detail: 'stub behind a real, tested seam — live vision call lands with real ingestion; fail-closed guard tracked in the stub ledger', state: 'context' },
+  { title: 'Tenant isolation layer (Day 2)', detail: 'untouched — Day-3 code never sees a tenant id; extracted content flows into it on Day 4', state: 'context' },
+  { title: 'Full ingestion pipeline (Day 4)', detail: 'not yet built — chunking, embedding, and indexing consume this spike next', state: 'context' },
+]} />
+
+## Proof
+
+```text
+9 PDF integration tests: green in 18.29s (real fixtures, real Tesseract, real subprocess)
+Crash isolation batch: good → DONE, poison → DEAD (malformed), next → DONE — parent survived
+Quick-gate: green (84 unit tests at the spike; 89 by the end of the window)
+Integration: 32 tests pass
+Type-check: clean over 74 files (was 46 before the scope widening)
+```
+
+<ScreenshotSlot note="Screenshot placeholder — reserved for a future GitHub Actions run screenshot of the PDF spike job, if the owner wants one alongside the pasted output above." />
