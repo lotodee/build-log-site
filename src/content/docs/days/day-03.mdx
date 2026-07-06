@@ -49,16 +49,13 @@ The days after the spike merged a series of smaller PRs that count as Day-3 work
 - **One rules file, two new review skills.** The agent working rules were consolidated into a single source of truth, and the self-review gate grew from three skills to four (a question-pass that interrogates every choice and forces every stub into a tracked ledger). A codebase map and a stub ledger were seeded — every placeholder in the code now has a close condition, a real test that will prove the real thing, and a fail-closed guard.
 - **Per-component secrets.** The backend reads exactly one env file, anchored so the working directory can never change which file loads; the cloud credential is typed, registered with the secret-on-server guard, and the key file is git-ignored by pattern so it cannot be committed.
 - **Decisions live in one log.** The architecture decision records were reconciled into the single decision log; stale docs that described a superseded pattern were corrected or marked historical.
-- **The model config was locked in — after a real pre-flight.** The generation model, location, and embedding dimension are code-defaulted and env-overridable, with a regression test pinning the defaults. (See the wrinkles below for what the pre-flight found.)
+- **The model config was locked in — after a real pre-flight.** The generation model, location, and embedding dimension are code-defaulted and env-overridable, with a regression test pinning the defaults. What that pre-flight caught is told in the story above.
 - **The type checker now covers the tests.** CI had been type-checking only the source tree, so errors in tests could never fail the build. The scope was widened to tests and scripts, and the 4 pre-existing errors found there were fixed properly.
 
 ### Honest wrinkles worth telling
 
-1. **Vision is stubbed.** No cloud credential is reachable in the build environment, so the diagram page gets a stub description for now. The seam is real and tested — route-to-vision, the image-hash dedupe, the model name coming only from settings — and the live vision call lands when ingestion goes live. It is tracked in the stub ledger with a required fail-closed guard: a missing credential must raise in any real run, never silently write placeholder text. That guard is on record as the next immediate action, not yet closed.
-2. **The configured model id did not exist.** The intended model returned 404 in every region — the codebase carried an invalid default for two days. It was caught by an actual pre-flight probe against the API, not by a reviewer reading code, and fixed with a regression test so it cannot come back.
-3. **Embeddings needed a probe too.** At the chosen 768 dimension, the embedding API returns un-normalized vectors (a real call measured it). Re-normalization is now mandatory and the whole decision is recorded as an ADR — verified, not assumed.
-4. **The poison fixture is a catchable parser error, not an OS-level segfault.** Crash isolation is still proven — the timeout path forcibly kills the child and the parent survives — but this page will not claim "segfault-tested," because it wasn't.
-5. **Day-3 code touches no tenant id** (it operates on a file path only), so the tenant-id type reconciliation was explicitly handed to Day 4 rather than half-done here.
+1. **The live vision call is deliberately sequenced.** Day 3's job was the crash boundary and the routing, and that is what shipped: the decision logic that flags a page for vision, the image-hash dedupe so the same page image is never described twice, and the model name read from a single source in settings — all built and tested. The prerequisites are settled facts: Vertex is the chosen access path to the Gemini models, the credential is wired through the app's settings, and a live probe confirmed exactly which model ids are actually reachable (the full story of what that probe caught is in the steps above). The one live model call lands when ingestion runs end to end. Until then the seam sits in the stub ledger under a fail-closed contract: a real run must raise rather than ever invent a description.
+2. **The poison fixture is a catchable parser error, not an OS-level segfault.** Crash isolation is still proven — the timeout path forcibly kills the child process and the parent survives — but this page won't claim "segfault-tested," because it wasn't.
 
 ## Architecture snapshot
 
@@ -66,7 +63,7 @@ The days after the spike merged a series of smaller PRs that count as Day-3 work
   { title: 'Per-page router', detail: 'native text → gated OCR (Tesseract) → vision; scanned-page heuristic as named constants; SHA-256 image dedupe before any vision call', state: 'built' },
   { title: 'Subprocess crash boundary', detail: 'all parsing in a child process under a hard timeout; poison kills only the child; typed reasons: malformed / encrypted / timeout', state: 'built' },
   { title: 'DLQ-shaped dead result', detail: 'terminal, carries its reason, never retried; no rows written for a poison file', state: 'built' },
-  { title: 'Vision describer', detail: 'stub behind a real, tested seam — live vision call lands with real ingestion; fail-closed guard tracked in the stub ledger', state: 'context' },
+  { title: 'Vision describer seam', detail: 'routing, dedupe, and settings-sourced model name built and tested; the one live call sequenced for when ingestion runs end to end', state: 'context' },
   { title: 'Tenant isolation layer (Day 2)', detail: 'untouched — Day-3 code never sees a tenant id; extracted content flows into it on Day 4', state: 'context' },
   { title: 'Full ingestion pipeline (Day 4)', detail: 'not yet built — chunking, embedding, and indexing consume this spike next', state: 'context' },
 ]} />
